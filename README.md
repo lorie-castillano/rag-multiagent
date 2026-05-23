@@ -57,6 +57,19 @@
 
 ---
 
+## Step 8 — Upgrade to Semantic / Vector Search *(AI-powered search skill)*
+- [x] Add `dense_vector` field to Elasticsearch index mapping in `ingest.py`
+- [x] Integrate Gemini Embeddings API (`models/gemini-embedding-001`) to generate embeddings per chunk at ingest time
+- [x] Store embedding vectors alongside document chunks in ES index
+- [x] Update `agents/elasticsearch_agent.py` `retrieve_documents` tool to use `knn` query instead of BM25 `match` query
+- [x] Re-run ingestion to rebuild index with vectors
+- [x] Test: same query via keyword search vs vector search — compare ranking quality
+- **Estimated time**: ~2–3 hours
+- **Depends on**: Steps 1–7 (all complete)
+- **Unlocks skill**: `AI-Powered Search` — can be added to LinkedIn/resume once this step is done
+
+---
+
 ## Notes
 - Total estimated time: **~6 hours 15 minutes**
 - Steps 1 & 2 are independent and can be done simultaneously

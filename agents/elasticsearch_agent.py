@@ -1,31 +1,39 @@
 import json
+import os
+from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
+from google import genai
 from mcp.server.fastmcp import FastMCP
+
+load_dotenv()
 
 ES_HOST = "http://localhost:9200"
 ES_INDEX = "rag_documents"
 TOP_K = 7
-MIN_SCORE = 1.5
+MIN_SCORE = 0.6
 
 mcp = FastMCP("elasticsearch-specialist")
 es = Elasticsearch(ES_HOST)
+gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+EMBED_MODEL = "models/gemini-embedding-001"
 
 
 @mcp.tool()
 def retrieve_documents(query: str) -> str:
     """Search the RAG knowledge base and return the top relevant document chunks."""
+    result = gemini.models.embed_content(model=EMBED_MODEL, contents=query)
+    query_vector = result.embeddings[0].values
+
     response = es.search(
         index=ES_INDEX,
         body={
-            "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": ["title^3", "content"],
-                    "type": "cross_fields",
-                }
+            "knn": {
+                "field": "embedding",
+                "query_vector": query_vector,
+                "k": TOP_K,
+                "num_candidates": 50,
             },
-            "size": TOP_K,
-            "_source": ["title", "content", "source"],
+            "_source": ["title", "content", "source", "chunk_id"],
         },
     )
 
@@ -41,6 +49,7 @@ def retrieve_documents(query: str) -> str:
             "title": hit["_source"].get("title", "Untitled"),
             "content": hit["_source"].get("content", ""),
             "source": hit["_source"].get("source", ""),
+            "chunk_id": hit["_source"].get("chunk_id", 0),
         }
         for i, hit in enumerate(hits)
     ]

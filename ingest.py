@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from elasticsearch import Elasticsearch, helpers
+from google import genai
+
+load_dotenv()
 
 ES_HOST = "http://localhost:9200"
 ES_INDEX = "rag_documents"
@@ -10,6 +14,9 @@ DOCS_DIR = "/Users/loriecastillano/CascadeProjects/agent-loria"
 ALLOWED_EXTENSIONS = {".md", ".txt"}
 
 es = Elasticsearch(ES_HOST)
+gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+EMBED_MODEL = "models/gemini-embedding-001"
+EMBED_DIM = 3072
 
 
 def chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
@@ -37,6 +44,7 @@ def create_index():
                     "content": {"type": "text"},
                     "source": {"type": "keyword"},
                     "chunk_id": {"type": "integer"},
+                    "embedding": {"type": "dense_vector", "dims": EMBED_DIM, "index": True, "similarity": "cosine"},
                 }
             }
         },
@@ -56,6 +64,8 @@ def load_documents():
         title = os.path.splitext(filename)[0].replace("_", " ").replace("-", " ").title()
         chunks = chunk_text(text)
         for i, chunk in enumerate(chunks):
+            result = gemini.models.embed_content(model=EMBED_MODEL, contents=chunk)
+            embedding = result.embeddings[0].values
             docs.append(
                 {
                     "_index": ES_INDEX,
@@ -64,6 +74,7 @@ def load_documents():
                         "content": chunk,
                         "source": filename,
                         "chunk_id": i,
+                        "embedding": embedding,
                     },
                 }
             )
